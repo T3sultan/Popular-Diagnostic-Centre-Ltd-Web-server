@@ -2,6 +2,9 @@ const express = require("express");
 const cors = require("cors");
 const port = process.env.PORT || 5000;
 const app = express();
+const nodemailer = require("nodemailer");
+const sgTransport = require("nodemailer-sendgrid-transport");
+
 require("dotenv").config();
 const jwt = require("jsonwebtoken");
 const { MongoClient, ServerApiVersion } = require("mongodb");
@@ -30,6 +33,42 @@ function verifyJWT(req, res, next) {
     // console.log(decoded); // bar
     req.decoded = decoded;
     next();
+  });
+}
+
+//send email
+const option = {
+  auth: {
+    api_key: process.env.EMAIL_SENDER_KEY,
+  },
+};
+const emailClient = nodemailer.createTransport(sgTransport(option));
+
+function sendAppointmentEmail(booking) {
+  const { patient, patientName, treatment, date, slot } = booking;
+  const email = {
+    from: process.env.EMAIL_SENDER,
+    to: patient,
+    subject: `Your Appointment for ${treatment} is on ${date} at ${slot} is Confirmed`,
+    text: `Your Appointment for ${treatment} is on ${date} at ${slot} is Confirmed`,
+    html: `
+    <div>
+    <p>Hello, ${patientName}</p>
+    <h3>Your Appointment is , ${treatment} is confirmed</h3>
+    <p>Looking forward to seeing you on, ${date} at ${slot}</p>
+    <h3>Our Address, ${patientName}</h3>
+    <p>Nabinagor</p>
+    <p>Bangladesh</p>
+    <a href="https://github.com/">unsubscribe</a>
+    </div>
+    `,
+  };
+  emailClient.sendMail(email, function (err, info) {
+    if (err) {
+      console.log(err);
+    } else {
+      console.log("Message sent: ", info);
+    }
   });
 }
 
@@ -137,6 +176,10 @@ async function run() {
         return res.send({ success: false, booking: exists });
       }
       const result = await bookingCollection.insertOne(booking);
+      //node mailer email
+      console.log("sending email");
+      sendAppointmentEmail(booking);
+
       return res.send({ success: true, result });
     });
 
@@ -180,6 +223,13 @@ async function run() {
     app.get("/doctor", verifyJWT, verifyAdmin, async (req, res) => {
       const doctors = await doctorsCollection.find().toArray();
       res.send(doctors);
+    });
+    //delete api
+    app.delete("/doctor/:email", verifyJWT, verifyAdmin, async (req, res) => {
+      const email = req.params.email;
+      const filter = { email: email };
+      const result = await doctorsCollection.deleteOne(filter);
+      res.send(result);
     });
   } finally {
     // await client.close()
