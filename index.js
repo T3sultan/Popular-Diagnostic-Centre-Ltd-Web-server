@@ -40,10 +40,11 @@ async function run() {
     const servicesCollection = services.collection("services");
     const bookingCollection = services.collection("booking");
     const usersCollection = services.collection("users");
+    const doctorsCollection = services.collection("doctors");
 
     app.get("/service", async (req, res) => {
       const query = {};
-      const cursor = servicesCollection.find(query);
+      const cursor = servicesCollection.find(query).project({ name: 1 });
       const services = await cursor.toArray();
       res.send(services);
     });
@@ -165,6 +166,12 @@ async function run() {
       });
 
       res.send(services);
+    });
+    //doctors api
+    app.post("/doctor", async (req, res) => {
+      const doctor = req.body;
+      const result = await doctorsCollection.insertOne(doctor);
+      res.send(result);
     });
   } finally {
     // await client.close()
